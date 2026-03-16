@@ -20,19 +20,29 @@ function getHelpText() {
     'Usage:',
     '  calculator <a> <op> <b>',
     '  calculator <op> <a> <b>',
+    '  calculator sqrt <n>',
     '',
     'Operations:',
-    '  +   addition',
-    '  -   subtraction',
-    '  *   multiplication',
-    '  /   division',
+    '  +    addition',
+    '  -    subtraction',
+    '  *    multiplication',
+    '  /    division',
+    '  %    modulo (remainder)',
+    '  **   exponentiation (power)',
+    '  sqrt square root',
     '',
     'Examples:',
     '  node src/calculator.js 10 / 2',
     '  node src/calculator.js multiply 6 7',
+    '  node src/calculator.js 10 % 3',
+    '  node src/calculator.js 2 ** 8',
+    '  node src/calculator.js 2 ^ 8',
+    '  node src/calculator.js sqrt 9',
     '',
     'Notes:',
     '  Division by zero is not allowed.',
+    '  Modulo by zero is not allowed.',
+    '  Square root of negative numbers is not allowed.',
   ].join('\n');
 }
 
@@ -53,7 +63,8 @@ function parseNumber(raw, label) {
 function normalizeOp(raw) {
   const op = String(raw).trim().toLowerCase();
 
-  // Map all allowed synonyms into one of: add | sub | mul | div
+  // Map all allowed synonyms into one of:
+  // add | sub | mul | div | mod | pow | sqrt
   const table = new Map([
     ['+', 'add'],
     ['add', 'add'],
@@ -75,9 +86,40 @@ function normalizeOp(raw) {
     ['÷', 'div'],
     ['div', 'div'],
     ['divide', 'div'],
+
+    ['%', 'mod'],
+    ['mod', 'mod'],
+    ['modulo', 'mod'],
+
+    ['**', 'pow'],
+    ['^', 'pow'],
+    ['pow', 'pow'],
+    ['power', 'pow'],
+    ['exp', 'pow'],
+
+    ['sqrt', 'sqrt'],
+    ['√', 'sqrt'],
   ]);
 
   return table.get(op) ?? null;
+}
+
+function modulo(a, b) {
+  if (b === 0) {
+    throw new Error('Modulo by zero is not allowed.');
+  }
+  return a % b;
+}
+
+function power(base, exponent) {
+  return base ** exponent;
+}
+
+function squareRoot(n) {
+  if (n < 0) {
+    throw new Error('Square root of negative numbers is not allowed.');
+  }
+  return Math.sqrt(n);
 }
 
 function calculate(op, a, b) {
@@ -93,17 +135,34 @@ function calculate(op, a, b) {
         throw new Error('Division by zero is not allowed.');
       }
       return a / b;
+    case 'mod':
+      return modulo(a, b);
+    case 'pow':
+      return power(a, b);
+    case 'sqrt':
+      return squareRoot(a);
     default:
       throw new Error(`Unsupported operation: ${JSON.stringify(op)}`);
   }
 }
 
 function parseExpression(args) {
-  if (!Array.isArray(args) || args.length !== 3) {
-    throw new Error('Expected exactly 3 arguments. Use --help for usage.');
+  if (!Array.isArray(args) || (args.length !== 3 && args.length !== 2)) {
+    throw new Error('Expected 3 arguments for binary ops or 2 arguments for unary ops. Use --help for usage.');
   }
 
-  // Support both formats:
+  // Unary: sqrt <n>
+  if (args.length === 2) {
+    const op = normalizeOp(args[0]);
+    if (op !== 'sqrt') {
+      throw new Error('Expected 3 arguments for binary ops or 2 arguments for unary ops. Use --help for usage.');
+    }
+
+    const a = parseNumber(args[1], 'argument');
+    return { op, a };
+  }
+
+  // Binary: support both formats:
   //   1) a op b
   //   2) op a b
   let aRaw;
@@ -122,7 +181,7 @@ function parseExpression(args) {
   }
 
   const op = normalizeOp(opRaw);
-  if (!op) {
+  if (!op || op === 'sqrt') {
     throw new Error(`Unsupported operation: ${JSON.stringify(opRaw)}. Use --help for supported operations.`);
   }
 
@@ -149,6 +208,9 @@ module.exports = {
   parseNumber,
   normalizeOp,
   parseExpression,
+  modulo,
+  power,
+  squareRoot,
   calculate,
   main,
 };
